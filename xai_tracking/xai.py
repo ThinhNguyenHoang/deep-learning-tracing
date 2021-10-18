@@ -13,6 +13,8 @@ import itertools
 import io
 from copy import deepcopy
 import torch_geometric
+from torchvision.io import read_image
+import os
 class ClassSampler(torch.utils.data.BatchSampler):
     def __init__(self, data_source, batch_size, drop_last, ghost_samples, classes_per_batch=1):
         self.data_source = data_source
@@ -100,10 +102,10 @@ class ClassSampler(torch.utils.data.BatchSampler):
             yield batch
 
 class WrappedDataset(torch.utils.data.Dataset):
-
     def __init__(self, ds, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.ds = ds
+    
     def __len__(self):
         return len(self.ds)
     def __getitem__(self, index: int):
@@ -114,12 +116,64 @@ class WrappedDataset(torch.utils.data.Dataset):
         Returns:
             tuple: (image, target) where target is index of the target class.
         """
-        x = self.ds[index]
+        # ds = X ??  ---> x = X[index]
+        x = self.ds[index] 
         if isinstance(x, torch_geometric.data.Data):
             return x, (index if torch.is_tensor(index) else torch.tensor(index))
         if torch.is_tensor(index):
             return (*x, index)
         return (*x, torch.tensor(index))
+
+class CustomBottleDataset(torch.utils.data.Dataset):
+    def __init__(self, img_dir, transform=None, target_transform=None):
+        self.img_dir = img_dir
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __len__(self):
+        path = './aggregated_folder_bottle'
+        files = os.listdir(path) 
+        return len(files)
+
+    def __getitem__(self, idx):
+        path = './aggregated_folder_bottle'
+        files = os.listdir(path) 
+        img_file_name = files[idx]
+        image = read_image(img_file_name) 
+        label = "good" if "good" in img_file_name else img_file_name.split("-")[0]
+        # image = read_image(img_path)
+        # label = self.img_labels.iloc[idx, 1]
+        # if self.transform:
+        #     image = self.transform(image)
+        # if self.target_transform:
+        #     label = self.target_transform(label)
+        return image, label
+    
+    
+class CustomZipperDataset(torch.utils.data.Dataset):
+    def __init__(self, img_dir, transform=None, target_transform=None):
+        self.img_dir = img_dir
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __len__(self):
+        path = './aggregated_folder_zipper'
+        files = os.listdir(path) 
+        return len(files)
+
+    def __getitem__(self, idx):
+        path = './aggregated_folder_bottle'
+        files = os.listdir(path) 
+        img_file_name = files[idx]
+        image = read_image(img_file_name) 
+        label = "good" if "good" in img_file_name else img_file_name.split("-")[0]
+        # image = read_image(img_path)
+        # label = self.img_labels.iloc[idx, 1]
+        # if self.transform:
+        #     image = self.transform(image)
+        # if self.target_transform:
+        #     label = self.target_transform(label)
+        return image, label
 
 class WrappedOptimizer(torch.optim.Optimizer):
     def __init__(self, base_cls, history_file="/raid/history.hdf5"):
