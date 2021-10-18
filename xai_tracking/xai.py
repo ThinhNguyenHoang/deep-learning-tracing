@@ -125,19 +125,18 @@ class WrappedDataset(torch.utils.data.Dataset):
         return (*x, torch.tensor(index))
 
 class CustomBottleDataset(torch.utils.data.Dataset):
-    def __init__(self, img_dir, transform=None, target_transform=None):
-        self.img_dir = img_dir
+    def __init__(self, img_dir, transform=None, target_transform=None, testset = False):
         self.transform = transform
         self.target_transform = target_transform
+        self.test = testset
+        self.path =  img_dir if not testset else img_dir + '/test'
 
     def __len__(self):
-        path = './aggregated_folder_bottle'
-        files = os.listdir(path) 
+        files = os.listdir(self.path) 
         return len(files)
 
     def __getitem__(self, idx):
-        path = './aggregated_folder_bottle'
-        files = os.listdir(path) 
+        files = os.listdir(self.path) 
         img_file_name = files[idx]
         image = read_image(img_file_name) 
         label = "good" if "good" in img_file_name else img_file_name.split("-")[0]
