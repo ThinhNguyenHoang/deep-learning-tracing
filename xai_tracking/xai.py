@@ -1,6 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pandas as pd
+import os
+from torchvision.io import read_image
+import torch
+from torch.utils.data import Dataset
+from torchvision import datasets
+from torchvision.transforms import ToTensor
+import matplotlib.pyplot as plt
+
 try:
     import torchvision
 except:
@@ -13,8 +22,10 @@ import itertools
 import io
 from copy import deepcopy
 import torch_geometric
-from torchvision.io import read_image
+# from torchvision.io import read_image
+from skimage import io, transform
 import os
+
 class ClassSampler(torch.utils.data.BatchSampler):
     def __init__(self, data_source, batch_size, drop_last, ghost_samples, classes_per_batch=1):
         self.data_source = data_source
@@ -124,54 +135,50 @@ class WrappedDataset(torch.utils.data.Dataset):
             return (*x, index)
         return (*x, torch.tensor(index))
 
+class CustomImageDataset(torch.utils.data.Dataset):
+    def __init__(self, annotations_file, img_dir, transform=None, target_transform=None):
+        self.img_labels = pd.read_csv(annotations_file)
+        self.img_dir = img_dir
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __len__(self):
+        return len(self.img_labels)
+
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx, 0])
+        image = read_image(img_path)
+        label = self.img_labels.iloc[idx, 1]
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            label = self.target_transform(label)
+        return image, label
+
 class CustomBottleDataset(torch.utils.data.Dataset):
     def __init__(self, img_dir, transform=None, target_transform=None, testset = False):
         self.transform = transform
         self.target_transform = target_transform
         self.test = testset
         self.path =  img_dir if not testset else img_dir + '/test'
+        print("INIT BOTTLE, COLAB NOW CAN SEE FILES FROM IMG_DIR: ",os.listdir(self.path))
+        self.files = os.listdir(self.path)
 
     def __len__(self):
-        files = os.listdir(self.path) 
-        return len(files)
+        return len(self.files)
 
     def __getitem__(self, idx):
-        files = os.listdir(self.path) 
-        img_file_name = files[idx]
-        image = read_image(img_file_name) 
-        label = "good" if "good" in img_file_name else img_file_name.split("-")[0]
-        # image = read_image(img_path)
-        # label = self.img_labels.iloc[idx, 1]
-        # if self.transform:
-        #     image = self.transform(image)
-        # if self.target_transform:
-        #     label = self.target_transform(label)
-        return image, label
+        img_file_name = self.files[idx]
+        # Khúc này là sửa lại để gắn path tương đối với filename.
+        img_file_path = os.path.join(self.path,img_file_name)
     
-    
-class CustomZipperDataset(torch.utils.data.Dataset):
-    def __init__(self, img_dir, transform=None, target_transform=None):
-        self.img_dir = img_dir
-        self.transform = transform
-        self.target_transform = target_transform
-
-    def __len__(self):
-        path = './aggregated_folder_zipper'
-        files = os.listdir(path) 
-        return len(files)
-
-    def __getitem__(self, idx):
-        path = './aggregated_folder_bottle'
-        files = os.listdir(path) 
-        img_file_name = files[idx]
-        image = read_image(img_file_name) 
+        image = io.imread(img_file_path)
         label = "good" if "good" in img_file_name else img_file_name.split("-")[0]
-        # image = read_image(img_path)
-        # label = self.img_labels.iloc[idx, 1]
-        # if self.transform:
-        #     image = self.transform(image)
-        # if self.target_transform:
-        #     label = self.target_transform(label)
+        print("IMG FILE PATH IS: ",len(img_file_path),label)
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            label = self.target_transform(label)
         return image, label
 
 class WrappedOptimizer(torch.optim.Optimizer):
